@@ -3,7 +3,10 @@
 namespace App\Entity;
 
 use App\Repository\UserRepository;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
+use JMS\Serializer\Annotation\Exclude;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
 
@@ -20,19 +23,24 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     private ?string $email = null;
 
     #[ORM\Column]
+    #[Exclude]
     private array $roles = [];
 
     /**
      * @var string The hashed password
      */
     #[ORM\Column]
+    #[Exclude]
     private ?string $password = null;
 
-    #[ORM\Column(length: 255)]
-    private ?string $ашкыfirstName = null;
+    #[ORM\OneToMany(mappedBy: 'executor', targetEntity: Task::class, orphanRemoval: true)]
+    #[Exclude]
+    private Collection $tasks;
 
-    #[ORM\Column(length: 255)]
-    private ?string $secondName = null;
+    public function __construct()
+    {
+        $this->tasks = new ArrayCollection();
+    }
 
     public function getId(): ?int
     {
@@ -104,26 +112,32 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         // $this->plainPassword = null;
     }
 
-    public function getашкыfirstName(): ?string
+    /**
+     * @return Collection<int, Task>
+     */
+    public function getTasks(): Collection
     {
-        return $this->ашкыfirstName;
+        return $this->tasks;
     }
 
-    public function setашкыfirstName(string $ашкыfirstName): static
+    public function addTask(Task $task): static
     {
-        $this->ашкыfirstName = $ашкыfirstName;
+        if (!$this->tasks->contains($task)) {
+            $this->tasks->add($task);
+            $task->setExecutor($this);
+        }
 
         return $this;
     }
 
-    public function getSecondName(): ?string
+    public function removeTask(Task $task): static
     {
-        return $this->secondName;
-    }
-
-    public function setSecondName(string $secondName): static
-    {
-        $this->secondName = $secondName;
+        if ($this->tasks->removeElement($task)) {
+            // set the owning side to null (unless already changed)
+            if ($task->getExecutor() === $this) {
+                $task->setExecutor(null);
+            }
+        }
 
         return $this;
     }
