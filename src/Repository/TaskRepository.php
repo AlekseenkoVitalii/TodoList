@@ -21,16 +21,46 @@ class TaskRepository extends ServiceEntityRepository
         parent::__construct($registry, Task::class);
     }
 
-    public function findTaskByParameters(array $parameters)
+    public function findTaskByParameters(array $parameters, array $orderBy)
     {
-        return $this->createQueryBuilder('t')
-            ->where('t. executor = :executor')
+        $query = $this->createQueryBuilder('t')
+            ->select('t.id, t.status, t.priority, t.title, t.description, t.createdAt, t.completedAt')
+            ->where('t.executor = :executor')
             ->setParameter('executor', $parameters['executor'])
-            ->andWhere('t.status = :status')
-            ->setParameter('status', $parameters['status'])
-//            ->andWhere('c.dateFrom <= :now')
-//            ->andWhere('c.dateTo >= :now')
-//            ->setParameter('now', (new \DateTime())->setTime(0, 0, 0))
+        ;
+        if (array_key_exists('title', $parameters)) {
+            $query
+                ->andWhere('t.title LIKE :title')
+                ->setParameter('title', '%' . $parameters['title'] . '%')
+            ;
+        }
+        if (array_key_exists('status', $parameters)) {
+            $query
+                ->andWhere('t.status = :status')
+                ->setParameter('status', $parameters['status'])
+            ;
+        }
+
+        if (array_key_exists('priorityStart', $parameters)) {
+            $query
+                ->andWhere('t.priority >= :priorityStart')
+                ->setParameter('priorityStart', $parameters['priorityStart'])
+            ;
+        }
+        if (array_key_exists('priorityFinish', $parameters)) {
+            $query
+                ->andWhere('t.priority <= :priorityFinish')
+                ->setParameter('priorityFinish', $parameters['priorityFinish'])
+            ;
+        }
+
+        if ($orderBy) {
+            array_key_exists('orderPriority', $orderBy) ? $query->addOrderBy('t.priority', $orderBy['orderPriority']) : null;
+            array_key_exists('orderCreatedAt', $orderBy) ? $query->addOrderBy('t.createdAt', $orderBy['orderCreatedAt']) : null;
+            array_key_exists('orderCompletedAt', $orderBy) ? $query->addOrderBy('t.completedAt', $orderBy['orderCompletedAt']) : null;
+        }
+
+        return  $query
             ->getQuery()
             ->getResult();
     }

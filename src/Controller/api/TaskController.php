@@ -3,15 +3,15 @@
 namespace App\Controller\api;
 
 use App\Controller\BaseController;
-use App\Entity\User;
 use App\Exception\TaskCompletionException;
+use App\Form\OptionsType;
 use Exception;
 use Symfony\Component\HttpFoundation\Response;
 use App\Entity\Task;
 use App\Form\TaskType;
 use App\Service\Manager\TaskManager;
 use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\Routing\Annotation\Route;
+use FOS\RestBundle\Controller\Annotations\Route;
 
 #[Route('/task')]
 class TaskController extends BaseController
@@ -29,9 +29,30 @@ class TaskController extends BaseController
     }
 
     #[Route('', methods: 'GET')]
-    public function getAllTasks(TaskManager $taskManager): Response
+    public function getAllTasksBy(Request $request, TaskManager $taskManager): Response
     {
-        return $this->sendJson($taskManager->getTasksAll($this->getUserTest($taskManager)));
+        $parameters = ['executor' => $this->getUser()];
+        $orderBy = [];
+
+        foreach ($request->query->keys() as $parameter) {
+            if ($request->get($parameter) && $request->get($parameter) != 'DESC' && $request->get($parameter) != 'ASC') {
+                $parameters[$parameter] = $request->get($parameter);
+            } else if ($request->get($parameter)) {
+                $orderBy[$parameter] = $request->get($parameter);
+            }
+        }
+
+        $form = $this->createForm(OptionsType::class, null, [
+            'method' => $request->getMethod(),
+        ]);
+        $form->submit($parameters);
+
+        if ($form->isSubmitted() && $form->isValid()) {
+
+            return $this->sendJson($taskManager->getTasksAllBy($this->getUser(), $parameters, $orderBy));
+        }
+
+        return $this->sendJson(['error' => $form]);
     }
 
     #[Route('/update/{id}', methods: 'PATCH')]
@@ -40,7 +61,7 @@ class TaskController extends BaseController
         $data = $this->getTask($taskManager, $id);
 
         return array_key_exists('data', $data)
-            ? $this->handleTask($request, $taskManager, $data['data'])
+            ? $this->handleTask($request, $taskManager, $data['data']->setExecutor($this->getUser()))
             : $this->sendJson($data);
     }
 
@@ -81,14 +102,12 @@ class TaskController extends BaseController
 
     protected function handleTask(Request $request, TaskManager $taskManager, Task $task): Response
     {
-        $user = $this->getUserTest($taskManager);
-
         $form = $this->createForm(TaskType::class, $task, [
             'method' => $request->getMethod(),
         ]);
 
         $form->submit(json_decode($request->getContent(), true));
-        $form->getData()->setExecutor($user);
+        $form->getData()->setExecutor($this->getUser());
 
         if ($form->isSubmitted() && $form->isValid()) {
             try {
@@ -106,46 +125,13 @@ class TaskController extends BaseController
 
     protected function getTask(TaskManager $taskManager, int $id): array
     {
-        $user = $this->getUserTest($taskManager);
-
         try {
-            $task = $taskManager->getTaskOne($id, $user);
+            $task = $taskManager->getTaskOne($id, $this->getUser());
         } catch (Exception $exception) {
 
             return ['error' => $exception->getMessage()];
         }
 
         return ['data' => $task];
-    }
-
-
-
-
-
-
-
-
-
-
-    private function getFormErrors( $form)
-    {
-        $errors = [];
-        foreach ($form->getErrors(true, true) as $error) {
-            $errors[] = $error->getMessage();
-        }
-
-        foreach ($form->all() as $childForm) {
-                $childErrors = $this->getFormErrors($childForm);
-                if (!empty($childErrors)) {
-                    $errors[$childForm->getName()] = $childErrors;
-                }
-        }
-
-        return $errors;
-    }
-
-    protected function getUserTest(TaskManager$taskManager): User
-    {
-        return $taskManager->getRepo(User::class)->find(1);
     }
 }
