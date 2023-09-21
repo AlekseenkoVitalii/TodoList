@@ -20,4 +20,18 @@ class TaskRepository extends ServiceEntityRepository
     {
         parent::__construct($registry, Task::class);
     }
+
+    public function findTaskByParameters(array $parameters)
+    {
+        return $this->createQueryBuilder('t')
+            ->where('t. executor = :executor')
+            ->setParameter('executor', $parameters['executor'])
+            ->andWhere('t.status = :status')
+            ->setParameter('status', $parameters['status'])
+//            ->andWhere('c.dateFrom <= :now')
+//            ->andWhere('c.dateTo >= :now')
+//            ->setParameter('now', (new \DateTime())->setTime(0, 0, 0))
+            ->getQuery()
+            ->getResult();
+    }
 }
