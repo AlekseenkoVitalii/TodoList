@@ -12,6 +12,7 @@
         "doctrine/orm": "^2.16",
         "friendsofsymfony/rest-bundle": "^3.5",
         "jms/serializer-bundle": "^5.3",
+        "lexik/jwt-authentication-bundle": "^2.19",
         "nesbot/carbon": "^2.70",
         "symfony/console": "6.3.*",
         "symfony/dotenv": "6.3.*",
