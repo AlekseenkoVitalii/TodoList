@@ -3,6 +3,9 @@
 namespace App\Controller\api;
 
 use App\Controller\BaseController;
+use App\Entity\User;
+use App\Exception\TaskCompletionException;
+use Exception;
 use Symfony\Component\HttpFoundation\Response;
 use App\Entity\Task;
 use App\Form\TaskType;
@@ -14,45 +17,112 @@ use Symfony\Component\Routing\Annotation\Route;
 class TaskController extends BaseController
 {
     #[Route('/create', methods: 'POST')]
-    public function create(Request $request, TaskManager $taskManager): Response
+    public function createTask(Request $request, TaskManager $taskManager): Response
     {
-        $task = $taskManager->newEntity(Task::class);
+        return $this->handleTask($request, $taskManager, $taskManager->newEntity(Task::class));
+    }
+
+    #[Route('/{id}', methods: 'GET')]
+    public function getOneTask(TaskManager $taskManager, int $id): Response
+    {
+        return  $this->sendJson($this->getTask($taskManager, $id));
+    }
+
+    #[Route('', methods: 'GET')]
+    public function getAllTasks(TaskManager $taskManager): Response
+    {
+        return $this->sendJson($taskManager->getTasksAll($this->getUserTest($taskManager)));
+    }
+
+    #[Route('/update/{id}', methods: 'PATCH')]
+    public function updateTask(Request $request, TaskManager $taskManager, int $id): Response
+    {
+        $data = $this->getTask($taskManager, $id);
+
+        return array_key_exists('data', $data)
+            ? $this->handleTask($request, $taskManager, $data['data'])
+            : $this->sendJson($data);
+    }
+
+    #[Route('/remove/{id}', methods: 'DELETE')]
+    public function removeTask(TaskManager $taskManager, int $id): Response
+    {
+        $data = $this->getTask($taskManager, $id);
+
+        if (array_key_exists('data', $data)) {
+            try {
+                $taskManager->removeTask($data['data']);
+                $data['data'] = null;
+            } catch (Exception $exception) {
+
+                return $this->sendJson(['error' => $exception->getMessage()]);
+            }
+        }
+
+        return $this->sendJson($data);
+    }
+
+    #[Route('/close/{id}', methods: 'GET')]
+    public function completeTask(TaskManager $taskManager, int $id): Response
+    {
+        $data = $this->getTask($taskManager, $id);
+
+        if (array_key_exists('data', $data)) {
+            try {
+                $taskManager->completeTask($data['data']);
+            } catch (TaskCompletionException $e) {
+
+                return $this->sendJson(['error' => $e->getMessage()]);
+            }
+        }
+
+        return $this->sendJson($data);
+    }
+
+    protected function handleTask(Request $request, TaskManager $taskManager, Task $task): Response
+    {
+        $user = $this->getUserTest($taskManager);
 
         $form = $this->createForm(TaskType::class, $task, [
             'method' => $request->getMethod(),
         ]);
 
         $form->submit(json_decode($request->getContent(), true));
+        $form->getData()->setExecutor($user);
 
         if ($form->isSubmitted() && $form->isValid()) {
             try {
                 $taskManager->save($form->getData());
-            } catch (\Exception $exception) {
-                return $this->handleView($this->view(['error' => $exception->getMessage()], Response::HTTP_BAD_REQUEST));
+            } catch (Exception $exception) {
+
+                return $this->sendJson(['error' => $exception->getMessage()]);
             }
 
-            return $this->handleView($this->view(['data' => $form->getData()], Response::HTTP_OK));
+            return $this->sendJson(['data' => $form->getData()]);
         }
 
-        return $this->handleView($this->view($form, Response::HTTP_BAD_REQUEST));
+        return $this->sendJson(['error' => $form]);
     }
 
-    #[Route('/{id}', methods: 'GET')]
-    public function getOne(Task $task): Response
+    protected function getTask(TaskManager $taskManager, int $id): array
     {
-        return $this->handleView($this->view(['data' => $task], Response::HTTP_OK));
+        $user = $this->getUserTest($taskManager);
+
+        try {
+            $task = $taskManager->getTaskOne($id, $user);
+        } catch (Exception $exception) {
+
+            return ['error' => $exception->getMessage()];
+        }
+
+        return ['data' => $task];
     }
 
-    #[Route('', methods: 'GET')]
-    public function getAll(TaskManager $taskManager): Response
-    {
-        return $this->handleView($this->view(['data' => $taskManager->getTaskAll()], Response::HTTP_OK));
-    }
 
-    #[Route('/update/{id}', methods: 'PATCH')]
-    public function update(Task $task)
-    {
-    }
+
+
+
+
 
 
 
@@ -72,5 +142,10 @@ class TaskController extends BaseController
         }
 
         return $errors;
+    }
+
+    protected function getUserTest(TaskManager$taskManager): User
+    {
+        return $taskManager->getRepo(User::class)->find(1);
     }
 }

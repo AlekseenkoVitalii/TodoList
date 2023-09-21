@@ -2,9 +2,9 @@
 
 namespace App\Service;
 
+use App\Exception\TaskNotFoundException;
 use Doctrine\ORM\EntityManagerInterface;
-use Doctrine\ORM\Exception\ORMException;
-use Doctrine\ORM\OptimisticLockException;
+use Doctrine\Persistence\ObjectRepository;
 
 class BaseManager
 {
@@ -37,5 +37,24 @@ class BaseManager
     public function newEntity($entityName)
     {
         return new $entityName();
+    }
+
+    public function getRepo($entity): ObjectRepository
+    {
+        return $this->em->getRepository($entity);
+    }
+
+    /**
+     * @throws TaskNotFoundException
+     */
+    public function findOrError($entity, $id)
+    {
+        $object =  $this->getRepo($entity)->findOneBy(['id' => $id]);
+
+        if(!$object) {
+            throw new TaskNotFoundException();
+        }
+
+        return $object;
     }
 }

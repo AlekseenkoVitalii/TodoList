@@ -23,10 +23,6 @@ class TaskType extends AbstractType
                 ]
             ])
             ->add('description', TextType::class)
-            ->add('executor', EntityType::class, [
-                'class' => User::class,
-                'constraints' => [new NotBlank()],
-            ])
             ->add('parent', EntityType::class, [
                 'class' => Task::class
             ])
