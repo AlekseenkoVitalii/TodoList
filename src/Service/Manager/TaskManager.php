@@ -4,7 +4,6 @@ namespace App\Service\Manager;
 
 use App\Constants\TaskStatusConstant;
 use App\Entity\Task;
-use App\Entity\User;
 use App\Exception\AccessDeniedException;
 use App\Exception\TaskCompletionException;
 use App\Exception\TaskDeleteCompletedException;
@@ -12,18 +11,19 @@ use App\Exception\TaskDeletionException;
 use App\Exception\TaskNotFoundException;
 use App\Service\BaseManager;
 use Carbon\CarbonImmutable;
+use Symfony\Component\Security\Core\User\UserInterface;
 
 class TaskManager extends BaseManager
 {
-    public function getTasksAll(User $user, $status = null): array
+    public function getTasksAllBy(UserInterface $user, $parameters, $orderBy): array
     {
-        $parameters = [
-            'executor' => $user,
-            'status' => TaskStatusConstant::STATUS_TODO
-        ];
-//        dd($this->getRepo(Task::class)->findTaskByParameters($parameters));
+        if (!$parameters) {
+            $data = $this->getRepo(Task::class)->findBy(['parent' => null, 'executor' => $user], $orderBy);
+        } else {
+            $data = $this->getRepo(Task::class)->findTaskByParameters($parameters, $orderBy);
+        }
 
-        return ['data' => $this->getRepo(Task::class)->findTaskByParameters($parameters)];
+        return ['data' => $data];
     }
 
     /**
