@@ -7,8 +7,8 @@ use Throwable;
 
 class TaskNotFoundException extends Exception
 {
-    public function __construct($message = "Task not found", $code = 400, Throwable $previous = null)
+    public function __construct($message = "Task not found", Throwable $previous = null)
     {
-        parent::__construct($message, $code, $previous);
+        parent::__construct($message, $previous);
     }
 }
